@@ -13,9 +13,9 @@ version = "0.1.0"
 [dependencies.msp430-rtfm]
 git = "https://github.com/japaric/msp430-rtfm"
 
-[dependencies.msp430g2553]
+[dependencies.msp430fr2433]
 features = ["rt"]
-version = "0.1.0"
+path = "../msp430fr2433"
 
 [profile.release]
 lto = true

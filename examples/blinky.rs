@@ -1,10 +1,9 @@
 #![no_std]
 
 extern crate msp430;
-extern crate msp430g2553;
+extern crate msp430fr2433;
 
-use msp430::{asm, interrupt};
-use msp430g2553::PORT_1_2;
+use msp430::asm;
 
 fn delay(n: u16) {
     let mut i = 0;
@@ -19,36 +18,38 @@ fn delay(n: u16) {
     }
 }
 
-// P0 = red LED
-// P6 = green LED
+// P1.0 = LED1
+// P1.1 = LED2
 fn main() {
-    interrupt::free(|cs| {
-        // Disable watchdog
-        let wdt = msp430g2553::WATCHDOG_TIMER.borrow(&cs);
-        wdt.wdtctl.write(|w| {
-            unsafe { w.bits(0x5A00) } // password
-            .wdthold().set_bit()
-        });
-
-        let port_1_2 = PORT_1_2.borrow(cs);
-
-        // set P0 high and P6 low
-        port_1_2
-            .p1out
-            .modify(|_, w| w.p0().set_bit().p6().clear_bit());
-
-        // Set P0 and P6 as outputs
-        port_1_2
-            .p1dir
-            .modify(|_, w| w.p0().set_bit().p6().set_bit());
-
-        loop {
-            delay(10_000);
-
-            // toggle outputs
-            port_1_2.p1out.modify(
-                |r, w| w.p0().bit(!r.p0().bit()).p6().bit(!r.p6().bit()),
-            );
-        }
+    let p = msp430fr2433::Peripherals::take().unwrap();
+    // Disable watchdog
+    let wdt = p.WATCHDOG_TIMER;
+    wdt.wdtctl.write(|w| {
+        unsafe { w.bits(0x5A00) } // password
+        .wdthold().set_bit()
     });
+
+    let port_1_2 = p.PORT_1_2;
+
+    // set P1.0 high and P1.1 low
+    port_1_2.p1out.modify(|_, w| w.p1out0().set_bit().p1out1().clear_bit());
+
+    // Set P1.0 and P1.1 as outputs
+    port_1_2.p1dir.modify(|_, w| w.p1dir0().set_bit().p1dir1().set_bit());
+
+    // Borrowed from TI's examples:
+    // Disable the GPIO power-on default high-impedance mode
+    // to activate previously configured port settings
+    let pmm = p.PMM;
+    pmm.pm5ctl0.modify(|_, w| w.locklpm5().clear_bit());
+
+    loop {
+        delay(10_000);
+
+        // toggle outputs
+        port_1_2.p1out.modify(
+            |r, w| w.p1out0().bit(!r.p1out0().bit())
+                    .p1out1().bit(!r.p1out1().bit()),
+        );
+    }
 }
